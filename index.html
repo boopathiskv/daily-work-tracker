@@ -265,51 +265,89 @@
 
     <!-- EXPORT MODAL -->
     <div id="export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title" hidden>
-        <div class="modal-backdrop" data-modal-close="export-modal"></div>
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-header">
-                <h2 id="export-title">Export Tasks</h2>
-                <button type="button" class="modal-close" aria-label="Close" data-modal-close="export-modal">&times;</button>
+    <div class="modal-backdrop" data-modal-close="export-modal"></div>
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-header">
+            <h2 id="export-title">Export Tasks</h2>
+            <button type="button" class="modal-close" aria-label="Close" data-modal-close="export-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>You are about to export your tasks as a JSON file.</p>
+            <div class="info-row"><span class="info-label">Total Tasks:</span> <span id="export-count">0</span></div>
+            <div class="info-row"><span class="info-label">File Name:</span> <span id="export-filename">-</span></div>
+
+            <div class="encrypt-section">
+                <label class="checkbox-row">
+                    <input type="checkbox" id="export-encrypt-toggle">
+                    <span>🔐 Encrypt with password (AES-256-GCM)</span>
+                </label>
+
+                <div id="export-password-wrap" class="password-wrap" hidden>
+                    <label for="export-password" class="sr-only">Encryption password</label>
+                    <div class="password-input-row">
+                        <input type="password" id="export-password" placeholder="Enter encryption password" maxlength="200" autocomplete="new-password">
+                        <button type="button" id="export-toggle-visibility" class="btn-icon" aria-label="Show password">👁</button>
+                    </div>
+                    <div class="password-input-row">
+                        <input type="password" id="export-password-confirm" placeholder="Confirm password" maxlength="200" autocomplete="new-password">
+                    </div>
+                    <div class="pwd-strength">
+                        <div class="pwd-strength-bar"><span id="export-pwd-bar"></span></div>
+                        <span id="export-pwd-label" class="pwd-strength-label">Strength</span>
+                    </div>
+                    <p class="hint">⚠️ Remember this password — there is <strong>no recovery</strong> if you forget it.</p>
+                </div>
             </div>
-            <div class="modal-body">
-                <p>You are about to export your tasks as a JSON file.</p>
-                <div class="info-row"><span class="info-label">Total Tasks:</span> <span id="export-count">0</span></div>
-                <div class="info-row"><span class="info-label">File Name:</span> <span id="export-filename">-</span></div>
-                <p class="hint">The file will be saved to your default downloads folder.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-modal-close="export-modal">Cancel</button>
-                <button type="button" id="btn-confirm-export" class="btn btn-primary">Download JSON</button>
-            </div>
+
+            <p class="hint">The file will be saved to your default downloads folder.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-modal-close="export-modal">Cancel</button>
+            <button type="button" id="btn-confirm-export" class="btn btn-primary">Download JSON</button>
         </div>
     </div>
+</div>
 
     <!-- IMPORT MODAL -->
     <div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden>
-        <div class="modal-backdrop" data-modal-close="import-modal"></div>
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-header">
-                <h2 id="import-title">Import Tasks</h2>
-                <button type="button" class="modal-close" aria-label="Close" data-modal-close="import-modal">&times;</button>
+    <div class="modal-backdrop" data-modal-close="import-modal"></div>
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-header">
+            <h2 id="import-title">Import Tasks</h2>
+            <button type="button" class="modal-close" aria-label="Close" data-modal-close="import-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Select a previously-exported JSON file to import tasks.</p>
+            <div class="file-drop">
+                <button type="button" id="btn-choose-file" class="btn btn-secondary">Choose File...</button>
+                <span id="import-filename" class="file-name">No file selected</span>
             </div>
-            <div class="modal-body">
-                <p>Select a previously-exported JSON file to import tasks.</p>
-                <div class="file-drop">
-                    <button type="button" id="btn-choose-file" class="btn btn-secondary">Choose File...</button>
-                    <span id="import-filename" class="file-name">No file selected</span>
+
+            <div id="import-encrypted-banner" class="encrypted-banner" hidden>
+                🔐 This file is <strong>encrypted</strong>. Enter the password to decrypt.
+            </div>
+
+            <div id="import-password-wrap" class="password-wrap" hidden>
+                <label for="import-password" class="sr-only">Decryption password</label>
+                <div class="password-input-row">
+                    <input type="password" id="import-password" placeholder="Enter decryption password" maxlength="200" autocomplete="off">
+                    <button type="button" id="import-toggle-visibility" class="btn-icon" aria-label="Show password">👁</button>
                 </div>
-                <div id="import-preview" class="info-row" hidden>
-                    <span class="info-label">Valid Tasks Found:</span>
-                    <span id="import-count">0</span>
-                </div>
-                <p class="warn-text">Importing will replace all current tasks.</p>
+                <button type="button" id="btn-decrypt" class="btn btn-secondary btn-small">🔓 Decrypt</button>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-modal-close="import-modal">Cancel</button>
-                <button type="button" id="btn-confirm-import" class="btn btn-primary" disabled>Import Tasks</button>
+
+            <div id="import-preview" class="info-row" hidden>
+                <span class="info-label">Valid Tasks Found:</span>
+                <span id="import-count">0</span>
             </div>
+            <p class="warn-text">Importing will replace all current tasks.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-modal-close="import-modal">Cancel</button>
+            <button type="button" id="btn-confirm-import" class="btn btn-primary" disabled>Import Tasks</button>
         </div>
     </div>
+</div>
 
     <!-- CONFIRMATION MODAL -->
     <div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
@@ -368,7 +406,7 @@
 
                 <!-- Metadata -->
                 <ul class="info-list">
-                    <li><span class="ico" aria-hidden="true">&#9873;</span><span class="lbl">Version</span><span class="val">5.1.0</span></li>
+                    <li><span class="ico" aria-hidden="true">&#9873;</span><span class="lbl">Version</span><span class="val">1.0.0</span></li>
                     <li><span class="ico" aria-hidden="true">&#128197;</span><span class="lbl">Released</span><span class="val" id="info-released">June 2026</span></li>
                     <li><span class="ico" aria-hidden="true">&#128100;</span><span class="lbl">Author</span><span class="val">Boopathi Subramanian</span></li>
                     <li><span class="ico" aria-hidden="true">&#9881;</span><span class="lbl">Built With</span><span class="val">HTML5 &middot; CSS3 &middot; Vanilla JS (ES6+)</span></li>
@@ -457,6 +495,7 @@
         </div>
     </div>
 
+    <script src="encryption.js" defer></script>
     <script src="app.js" defer></script>
 </body>
 </html>
