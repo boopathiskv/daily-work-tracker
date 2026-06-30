@@ -158,7 +158,7 @@ Then open: `http://localhost:8080`
 ### Option 3 — Deploy to GitHub Pages
 1. Push to your GitHub repo
 2. Settings → Pages → Source: `main` branch, root folder
-3. Visit `https://<your-username>.github.io/<repo-name>/`
+3. Visit `https://github.com/boopathiskv/daily-work-tracker`
 
 ---
 
@@ -323,9 +323,8 @@ The author assumes **no liability** for:
 
 **Boopathi Subramanian**
 
-- 💼 GitHub: https://github.com/your-username
-- 📧 Email: your.email@example.com
-- 🌐 Portfolio: https://your-portfolio.com
+- 💼 GitHub: https://github.com/boopathiskv
+
 
 ---
 
