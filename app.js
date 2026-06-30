@@ -1,7 +1,7 @@
 /* =====================================================
    Daily Work Follow-Up Tracker
    Pure vanilla JS, client-side, offline.
-   In-memory `jsondata` store.
+   In-memory `jsondata` store + AES-GCM encrypted import/export.
    ===================================================== */
 
 (function () {
@@ -22,6 +22,7 @@
     let editingId     = null;
     let pendingImport = null;
     let confirmAction = null;
+    let importRawText = null;
 
     /* ---------- DOM references ---------- */
     const el = {};
@@ -104,6 +105,23 @@
         el.messageTitle      = document.getElementById('message-title');
         el.messageIcon       = document.getElementById('message-icon');
         el.messageText       = document.getElementById('message-text');
+
+        // Encryption UI - Export
+        el.exportEncryptToggle    = document.getElementById('export-encrypt-toggle');
+        el.exportPasswordWrap     = document.getElementById('export-password-wrap');
+        el.exportPassword         = document.getElementById('export-password');
+        el.exportPasswordConfirm  = document.getElementById('export-password-confirm');
+        el.exportToggleVisibility = document.getElementById('export-toggle-visibility');
+        el.exportPwdBar           = document.getElementById('export-pwd-bar');
+        el.exportPwdLabel         = document.getElementById('export-pwd-label');
+        el.exportPwdWrapper       = el.exportPwdBar ? el.exportPwdBar.parentElement.parentElement : null;
+
+        // Encryption UI - Import
+        el.importEncryptedBanner  = document.getElementById('import-encrypted-banner');
+        el.importPasswordWrap     = document.getElementById('import-password-wrap');
+        el.importPassword         = document.getElementById('import-password');
+        el.importToggleVisibility = document.getElementById('import-toggle-visibility');
+        el.btnDecrypt             = document.getElementById('btn-decrypt');
     }
 
     function bindEvents() {
@@ -116,7 +134,6 @@
             setTimeout(function () { el.taskName.focus(); }, 50);
         });
 
-        // Info button
         el.btnInfo.addEventListener('click', function () { openModal(el.infoModal); });
 
         el.startDate.addEventListener('change', updateTaskIdPreview);
@@ -130,24 +147,30 @@
             if (!el.dataMenu.contains(e.target)) closeDataMenu();
         });
 
+        // Export / Import / Clear
         el.btnExport.addEventListener('click', function () { closeDataMenu(); openExportModal(); });
         el.btnConfirmExport.addEventListener('click', performExport);
 
         el.btnImport.addEventListener('click', function () { closeDataMenu(); openImportModal(); });
         el.btnChooseFile.addEventListener('click', function () { el.importFile.click(); });
         el.importFile.addEventListener('change', handleImportFile);
+
+        /* ⭐ The fix: ensure btn-confirm-import is wired up */
         el.btnConfirmImport.addEventListener('click', performImport);
 
         el.btnClearAll.addEventListener('click', function () { closeDataMenu(); confirmClearAll(); });
 
+        // Filters / search / sort
         el.searchInput.addEventListener('input', renderTasks);
         el.filterPriority.addEventListener('change', renderTasks);
         el.filterCategory.addEventListener('change', renderTasks);
         el.filterStatus.addEventListener('change', renderTasks);
         el.sortBy.addEventListener('change', renderTasks);
 
+        // Table delegated actions
         el.tasksBody.addEventListener('click', onTableClick);
 
+        // Generic modal close
         document.addEventListener('click', function (e) {
             const target = e.target;
             if (!(target instanceof HTMLElement)) return;
@@ -158,6 +181,7 @@
             }
         });
 
+        // Confirmation OK
         el.btnConfirmOk.addEventListener('click', function () {
             const action = confirmAction;
             closeModal(el.confirmModal);
@@ -165,6 +189,7 @@
             if (typeof action === 'function') action();
         });
 
+        // ESC closes top-most modal
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 const openModals = document.querySelectorAll('.modal:not([hidden])');
@@ -176,11 +201,34 @@
             }
         });
 
+        // Warn before leaving
         window.addEventListener('beforeunload', function (e) {
             if (jsondata.length > 0) {
                 e.preventDefault();
                 e.returnValue = '';
             }
+        });
+
+        // ---------- Encryption-related ----------
+        el.exportEncryptToggle.addEventListener('change', function () {
+            el.exportPasswordWrap.hidden = !el.exportEncryptToggle.checked;
+            if (!el.exportEncryptToggle.checked) {
+                el.exportPassword.value = '';
+                el.exportPasswordConfirm.value = '';
+                updateExportStrength();
+            }
+        });
+        el.exportPassword.addEventListener('input', updateExportStrength);
+        el.exportToggleVisibility.addEventListener('click', function () {
+            togglePasswordVisibility(el.exportPassword, el.exportToggleVisibility);
+            togglePasswordVisibility(el.exportPasswordConfirm, null);
+        });
+        el.importToggleVisibility.addEventListener('click', function () {
+            togglePasswordVisibility(el.importPassword, el.importToggleVisibility);
+        });
+        el.btnDecrypt.addEventListener('click', performDecrypt);
+        el.importPassword.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); performDecrypt(); }
         });
     }
 
@@ -274,8 +322,7 @@
             }
         });
         if (maxSeq >= 99) return NaN;
-        const next = maxSeq + 1;
-        return parseInt(base + String(next).padStart(2, '0'), 10);
+        return parseInt(base + String(maxSeq + 1).padStart(2, '0'), 10);
     }
     function updateTaskIdPreview() {
         if (editingId !== null) return;
@@ -285,11 +332,9 @@
             return;
         }
         const id = generateTaskId(sd);
-        if (Number.isFinite(id)) {
-            el.taskIdPreview.textContent = String(id);
-        } else {
-            el.taskIdPreview.textContent = 'Limit reached for this date (max 99)';
-        }
+        el.taskIdPreview.textContent = Number.isFinite(id)
+            ? String(id)
+            : 'Limit reached for this date (max 99)';
     }
 
     /* ===== Validation / Sanitization ===== */
@@ -324,7 +369,6 @@
     function validateTask(task, options) {
         const errors = [];
         options = options || {};
-
         if (!Number.isFinite(task.id) || task.id <= 0) {
             errors.push('Task ID could not be generated. Please check Start Date.');
         } else {
@@ -441,7 +485,6 @@
         const task   = readFormTask(editingId);
         const errors = validateTask(task, { ignoreId: editingId });
         if (errors.length > 0) { showMessage(errors[0], 'error'); return; }
-
         const idx = jsondata.findIndex(function (t) { return t.id === editingId; });
         if (idx === -1) {
             showMessage('Task no longer exists.', 'error');
@@ -455,7 +498,7 @@
         updateSummary();
         resetForm();
         closeModal(el.taskModal);
-        showMessage('Task updated successfully.', 'success');
+        showMessage('Task #' + editingId + ' updated successfully.', 'success');
     }
     function editTask(id) {
         const task = jsondata.find(function (t) { return t.id === id; });
@@ -638,49 +681,110 @@
         el.sumOverdue.textContent    = String(overdue);
     }
 
-    /* ===== Export ===== */
+    /* =====================================================
+       Encryption UI helpers
+       ===================================================== */
+    function togglePasswordVisibility(inputEl, btn) {
+        if (!inputEl) return;
+        const isPwd = inputEl.type === 'password';
+        inputEl.type = isPwd ? 'text' : 'password';
+        if (btn) btn.textContent = isPwd ? '🙈' : '👁';
+    }
+    function updateExportStrength() {
+        if (!el.exportPwdWrapper) return;
+        const pwd    = el.exportPassword.value;
+        const score  = window.DWTCrypto ? window.DWTCrypto.passwordStrength(pwd) : 0;
+        const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+        el.exportPwdWrapper.className = 'pwd-strength' + (score > 0 ? ' s' + score : '');
+        el.exportPwdLabel.textContent = pwd ? (labels[score] || 'Weak') : 'Strength';
+    }
+
+    /* =====================================================
+       Export
+       ===================================================== */
     function openExportModal() {
         if (jsondata.length === 0) {
             showMessage('There are no tasks to export.', 'info');
             return;
         }
+        el.exportEncryptToggle.checked = false;
+        el.exportPasswordWrap.hidden   = true;
+        el.exportPassword.value        = '';
+        el.exportPasswordConfirm.value = '';
+        updateExportStrength();
+
         el.exportCount.textContent    = String(jsondata.length);
         el.exportFilename.textContent = 'daily-work-tasks-' + todayISO() + '.json';
         openModal(el.exportModal);
     }
-    function performExport() {
+
+    async function performExport() {
         try {
+            const useEncryption = el.exportEncryptToggle.checked;
+            let outputText;
+            let filename = 'daily-work-tasks-' + todayISO() + '.json';
+
             const json = JSON.stringify(jsondata, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
+
+            if (useEncryption) {
+                const pwd1 = el.exportPassword.value;
+                const pwd2 = el.exportPasswordConfirm.value;
+                if (!pwd1)              { showMessage('Please enter an encryption password.', 'error'); return; }
+                if (pwd1.length < 6)    { showMessage('Password must be at least 6 characters.', 'error'); return; }
+                if (pwd1 !== pwd2)      { showMessage('Passwords do not match.', 'error'); return; }
+                if (!window.DWTCrypto)  { showMessage('Encryption module not loaded.', 'error'); return; }
+
+                outputText = await window.DWTCrypto.encryptText(json, pwd1);
+                filename   = 'daily-work-tasks-' + todayISO() + '.enc.json';
+            } else {
+                outputText = json;
+            }
+
+            const blob = new Blob([outputText], { type: 'application/json' });
             const url  = URL.createObjectURL(blob);
             const a    = document.createElement('a');
             a.href     = url;
-            a.download = 'daily-work-tasks-' + todayISO() + '.json';
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+
             closeModal(el.exportModal);
-            showMessage('Tasks exported successfully.', 'success');
+            showMessage(
+                useEncryption
+                    ? 'Tasks exported & encrypted successfully.'
+                    : 'Tasks exported successfully.',
+                'success'
+            );
         } catch (err) {
-            showMessage('Failed to export tasks.', 'error');
+            const msg = (err && err.message) ? err.message : 'Failed to export tasks.';
+            showMessage('Export failed: ' + msg, 'error');
         }
     }
 
-    /* ===== Import ===== */
+    /* =====================================================
+       Import
+       ===================================================== */
     function openImportModal() {
-        pendingImport                   = null;
-        el.importFile.value             = '';
-        el.importFilenameEl.textContent = 'No file selected';
+        pendingImport                       = null;
+        importRawText                       = null;
+        el.importFile.value                 = '';
+        el.importFilenameEl.textContent     = 'No file selected';
         el.importFilenameEl.classList.remove('has-file');
-        el.importPreview.hidden         = true;
-        el.importCount.textContent      = '0';
-        el.btnConfirmImport.disabled    = true;
+        el.importPreview.hidden             = true;
+        el.importCount.textContent          = '0';
+        el.btnConfirmImport.disabled        = true;
+        el.importEncryptedBanner.hidden     = true;
+        el.importPasswordWrap.hidden        = true;
+        el.importPassword.value             = '';
         openModal(el.importModal);
     }
+
     function handleImportFile(event) {
         const file = event.target.files && event.target.files[0];
         if (!file) return;
+
         if (file.size > 5 * 1024 * 1024) {
             showMessage('Import file is too large (max 5MB).', 'error');
             return;
@@ -690,54 +794,95 @@
 
         const reader = new FileReader();
         reader.onload = function (e) {
-            try {
-                const text   = e.target.result;
-                const parsed = JSON.parse(text);
-                if (!Array.isArray(parsed)) throw new Error('Imported data must be a JSON array of tasks.');
+            const text = e.target.result;
+            importRawText = text;
 
-                const cleaned = [];
-                const seenIds = new Set();
-                for (let i = 0; i < parsed.length; i++) {
-                    const raw = parsed[i];
-                    if (!raw || typeof raw !== 'object') continue;
-                    const task = {
-                        id:            Number(raw.id),
-                        name:          sanitizeText(raw.name, MAX_TASK_NAME),
-                        priority:      sanitizeText(raw.priority, 10),
-                        category:      sanitizeText(raw.category, 20),
-                        startDate:     sanitizeText(raw.startDate, 10),
-                        dueDate:       sanitizeText(raw.dueDate, 10),
-                        estimatedTime: sanitizeText(raw.estimatedTime, 10),
-                        actualTime:    sanitizeText(raw.actualTime, 10),
-                        status:        sanitizeText(raw.status, 20),
-                        completedDate: sanitizeText(raw.completedDate, 10),
-                        remarks:       sanitizeText(raw.remarks, MAX_REMARKS)
-                    };
-                    if (!isValidTaskObject(task)) continue;
-                    if (seenIds.has(task.id))    continue;
-                    seenIds.add(task.id);
-                    cleaned.push(task);
-                }
-                if (cleaned.length === 0) throw new Error('No valid tasks were found in the file.');
-
-                pendingImport                = cleaned;
-                el.importCount.textContent   = String(cleaned.length);
-                el.importPreview.hidden      = false;
-                el.btnConfirmImport.disabled = false;
-            } catch (err) {
-                pendingImport                = null;
-                el.importPreview.hidden      = true;
-                el.btnConfirmImport.disabled = true;
-                const msg = (err && err.message) ? err.message : 'Invalid JSON file.';
-                showMessage('Import failed: ' + msg, 'error');
+            if (window.DWTCrypto && window.DWTCrypto.isEncryptedEnvelope(text)) {
+                el.importEncryptedBanner.hidden = false;
+                el.importPasswordWrap.hidden    = false;
+                el.importPreview.hidden         = true;
+                el.btnConfirmImport.disabled    = true;
+                el.importPassword.focus();
+            } else {
+                el.importEncryptedBanner.hidden = true;
+                el.importPasswordWrap.hidden    = true;
+                processImportPlaintext(text);
             }
         };
-        reader.onerror = function () { showMessage('Could not read the selected file.', 'error'); };
+        reader.onerror = function () {
+            showMessage('Could not read the selected file.', 'error');
+        };
         reader.readAsText(file);
     }
+
+    async function performDecrypt() {
+        if (!importRawText) {
+            showMessage('Please choose a file first.', 'error');
+            return;
+        }
+        const pwd = el.importPassword.value;
+        if (!pwd) { showMessage('Please enter the decryption password.', 'error'); return; }
+        if (!window.DWTCrypto) { showMessage('Encryption module not loaded.', 'error'); return; }
+
+        try {
+            const plaintext = await window.DWTCrypto.decryptText(importRawText, pwd);
+            el.importEncryptedBanner.hidden = true;
+            el.importPasswordWrap.hidden    = true;
+            el.importPassword.value         = '';
+            processImportPlaintext(plaintext);
+            showMessage('File decrypted successfully.', 'success');
+        } catch (err) {
+            const msg = (err && err.message) ? err.message : 'Decryption failed.';
+            showMessage(msg, 'error');
+        }
+    }
+
+    function processImportPlaintext(text) {
+        try {
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed)) throw new Error('Imported data must be a JSON array of tasks.');
+
+            const cleaned = [];
+            const seenIds = new Set();
+            for (let i = 0; i < parsed.length; i++) {
+                const raw = parsed[i];
+                if (!raw || typeof raw !== 'object') continue;
+                const task = {
+                    id:            Number(raw.id),
+                    name:          sanitizeText(raw.name, MAX_TASK_NAME),
+                    priority:      sanitizeText(raw.priority, 10),
+                    category:      sanitizeText(raw.category, 20),
+                    startDate:     sanitizeText(raw.startDate, 10),
+                    dueDate:       sanitizeText(raw.dueDate, 10),
+                    estimatedTime: sanitizeText(raw.estimatedTime, 10),
+                    actualTime:    sanitizeText(raw.actualTime, 10),
+                    status:        sanitizeText(raw.status, 20),
+                    completedDate: sanitizeText(raw.completedDate, 10),
+                    remarks:       sanitizeText(raw.remarks, MAX_REMARKS)
+                };
+                if (!isValidTaskObject(task)) continue;
+                if (seenIds.has(task.id))    continue;
+                seenIds.add(task.id);
+                cleaned.push(task);
+            }
+            if (cleaned.length === 0) throw new Error('No valid tasks were found in the file.');
+
+            pendingImport                = cleaned;
+            el.importCount.textContent   = String(cleaned.length);
+            el.importPreview.hidden      = false;
+            el.btnConfirmImport.disabled = false;
+        } catch (err) {
+            pendingImport                = null;
+            el.importPreview.hidden      = true;
+            el.btnConfirmImport.disabled = true;
+            const msg = (err && err.message) ? err.message : 'Invalid JSON file.';
+            showMessage('Import failed: ' + msg, 'error');
+        }
+    }
+
     function performImport() {
         if (!pendingImport || pendingImport.length === 0) {
-            showMessage('No valid tasks ready to import.', 'error');
+            showMessage('No valid tasks ready to import. Please choose a file (and decrypt it if needed).', 'error');
             return;
         }
         const count   = pendingImport.length;
