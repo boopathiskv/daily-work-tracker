@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self';
+                   style-src 'self';
+                   img-src 'self' data:;
+                   font-src 'self';
+                   connect-src 'self';
+                   object-src 'none';
+                   base-uri 'self';
+                   form-action 'self';
+                   frame-ancestors 'none';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Daily Work Follow-Up Tracker - manage your daily tasks, priorities, and status.">
+    <title>Daily Work Follow-Up Tracker</title>
+    <link rel="stylesheet" href="Css.css">
+</head>
+<body>
+    <header class="app-header" role="banner">
+        <div class="header-inner">
+            <div class="header-text">
+                <h1>Daily Work Follow-Up Tracker</h1>
+                <p class="subtitle">Manage daily tasks, priorities, status, and completion details.</p>
+            </div>
+            <div class="header-actions">
+                <button type="button" id="btn-open-add" class="btn btn-header-primary">
+                    <span aria-hidden="true">+</span> Add New Task
+                </button>
+                <div class="dropdown" id="data-menu">
+                    <button type="button" id="btn-data-menu" class="btn btn-header-secondary"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="data-menu-list">
+                        Data Options <span class="caret" aria-hidden="true">&#9662;</span>
+                    </button>
+                    <ul id="data-menu-list" class="dropdown-menu" role="menu" hidden>
+                        <li role="none">
+                            <button type="button" id="btn-export" class="dropdown-item" role="menuitem">
+                                <span class="dd-icon" aria-hidden="true">&#8682;</span> Export JSON
+                            </button>
+                        </li>
+                        <li role="none">
+                            <button type="button" id="btn-import" class="dropdown-item" role="menuitem">
+                                <span class="dd-icon" aria-hidden="true">&#8681;</span> Import JSON
+                            </button>
+                        </li>
+                        <li role="separator" class="dropdown-divider"></li>
+                        <li role="none">
+                            <button type="button" id="btn-clear-all" class="dropdown-item dropdown-item-danger" role="menuitem">
+                                <span class="dd-icon" aria-hidden="true">&#10005;</span> Clear All
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <button type="button" id="btn-info" class="btn btn-header-icon" aria-label="About this app" title="About">
+                    <span aria-hidden="true">&#9432;</span>
+                </button>
+                <input type="file" id="import-file" accept="application/json,.json" hidden>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" role="main">
+
+        <!-- Summary cards -->
+        <section class="summary-section" aria-label="Task summary">
+            <div class="summary-cards">
+                <div class="summary-card card-total">
+                    <span class="card-label">Total Tasks</span>
+                    <span class="card-value" id="summary-total">0</span>
+                </div>
+                <div class="summary-card card-not-started">
+                    <span class="card-label">Not Started</span>
+                    <span class="card-value" id="summary-not-started">0</span>
+                </div>
+                <div class="summary-card card-in-progress">
+                    <span class="card-label">In Progress</span>
+                    <span class="card-value" id="summary-in-progress">0</span>
+                </div>
+                <div class="summary-card card-waiting">
+                    <span class="card-label">Waiting</span>
+                    <span class="card-value" id="summary-waiting">0</span>
+                </div>
+                <div class="summary-card card-completed">
+                    <span class="card-label">Completed</span>
+                    <span class="card-value" id="summary-completed">0</span>
+                </div>
+                <div class="summary-card card-overdue">
+                    <span class="card-label">Overdue</span>
+                    <span class="card-value" id="summary-overdue">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- One-row Filter Toolbar -->
+        <section class="card toolbar-section" aria-label="Filters">
+            <div class="toolbar-row">
+                <label for="search-input" class="sr-only">Search tasks</label>
+                <input type="search" id="search-input" placeholder="🔍 Search tasks..." maxlength="200" class="filter-search">
+
+                <label for="filter-priority" class="sr-only">Filter by Priority</label>
+                <select id="filter-priority" aria-label="Filter by Priority" class="filter-select">
+                    <option value="">All Priorities</option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                    <option value="P3">P3</option>
+                </select>
+
+                <label for="filter-category" class="sr-only">Filter by Category</label>
+                <select id="filter-category" aria-label="Filter by Category" class="filter-select">
+                    <option value="">All Categories</option>
+                    <option value="Work">Work</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Other">Other</option>
+                </select>
+
+                <label for="filter-status" class="sr-only">Filter by Status</label>
+                <select id="filter-status" aria-label="Filter by Status" class="filter-select">
+                    <option value="">All Statuses</option>
+                    <option value="Not Started">Not Started</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Waiting">Waiting</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Overdue">Overdue</option>
+                </select>
+
+                <label for="sort-by" class="sr-only">Sort by</label>
+                <select id="sort-by" aria-label="Sort by" class="filter-select">
+                    <option value="id">Sort: Task ID</option>
+                    <option value="dueDate">Sort: Due Date</option>
+                    <option value="priority">Sort: Priority</option>
+                    <option value="status">Sort: Status</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Tasks table -->
+        <section class="card table-section" aria-label="Tasks">
+            <div class="table-wrapper">
+                <table class="tasks-table" id="tasks-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Task ID</th>
+                            <th scope="col">Task Name</th>
+                            <th scope="col">Priority</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Start Date</th>
+                            <th scope="col">Due Date</th>
+                            <th scope="col">Est. Time</th>
+                            <th scope="col">Act. Time</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Completed</th>
+                            <th scope="col">Remarks</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-body"></tbody>
+                </table>
+                <p id="empty-state" class="empty-state" hidden>No tasks found. Click "Add New Task" to get started.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer" role="contentinfo">
+        <p>&copy; Daily Work Follow-Up Tracker &middot; Offline &middot; Client-side only</p>
+    </footer>
+
+    <!-- TASK FORM MODAL -->
+    <div id="task-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="form-title" hidden>
+        <div class="modal-backdrop" data-modal-close="task-modal"></div>
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-header">
+                <h2 id="form-title">Add New Task</h2>
+                <button type="button" class="modal-close" aria-label="Close" data-modal-close="task-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-info-banner" id="form-id-banner">
+                    <span class="info-label">Task ID:</span>
+                    <span id="task-id-preview">Auto-generated from Start Date</span>
+                </div>
+                <form id="task-form" novalidate autocomplete="off">
+                    <div class="form-grid">
+                        <div class="form-field form-field-wide">
+                            <label for="task-name">Task Name <span class="req">*</span></label>
+                            <input type="text" id="task-name" name="task-name" maxlength="200" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-priority">Priority <span class="req">*</span></label>
+                            <select id="task-priority" name="task-priority" required>
+                                <option value="">-- Select --</option>
+                                <option value="P1">P1</option>
+                                <option value="P2">P2</option>
+                                <option value="P3">P3</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-category">Category <span class="req">*</span></label>
+                            <select id="task-category" name="task-category" required>
+                                <option value="">-- Select --</option>
+                                <option value="Work">Work</option>
+                                <option value="Personal">Personal</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-start-date">Start Date <span class="req">*</span></label>
+                            <input type="date" id="task-start-date" name="task-start-date" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-due-date">Due Date <span class="req">*</span></label>
+                            <input type="date" id="task-due-date" name="task-due-date" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-estimated-time">Estimated Time <span class="req">*</span></label>
+                            <select id="task-estimated-time" name="task-estimated-time" required>
+                                <option value="">-- Select --</option>
+                                <option value="30 Min">30 Min</option>
+                                <option value="1 Hr">1 Hr</option>
+                                <option value="2 Hr">2 Hr</option>
+                                <option value="4 Hr">4 Hr</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-actual-time">Actual Time</label>
+                            <select id="task-actual-time" name="task-actual-time">
+                                <option value="">-- Select --</option>
+                                <option value="30 Min">30 Min</option>
+                                <option value="1 Hr">1 Hr</option>
+                                <option value="2 Hr">2 Hr</option>
+                                <option value="4 Hr">4 Hr</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-status">Status <span class="req">*</span></label>
+                            <select id="task-status" name="task-status" required>
+                                <option value="">-- Select --</option>
+                                <option value="Not Started">Not Started</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Waiting">Waiting</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="task-completed-date">Completed Date</label>
+                            <input type="date" id="task-completed-date" name="task-completed-date">
+                        </div>
+                        <div class="form-field form-field-full">
+                            <label for="task-remarks">Remarks</label>
+                            <textarea id="task-remarks" name="task-remarks" rows="3" maxlength="1000"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-reset" class="btn btn-secondary">Reset Form</button>
+                <button type="button" id="btn-cancel" class="btn btn-secondary" data-modal-close="task-modal">Cancel</button>
+                <button type="submit" form="task-form" id="btn-submit" class="btn btn-primary">Add Task</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPORT MODAL -->
+    <div id="export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title" hidden>
+        <div class="modal-backdrop" data-modal-close="export-modal"></div>
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-header">
+                <h2 id="export-title">Export Tasks</h2>
+                <button type="button" class="modal-close" aria-label="Close" data-modal-close="export-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to export your tasks as a JSON file.</p>
+                <div class="info-row"><span class="info-label">Total Tasks:</span> <span id="export-count">0</span></div>
+                <div class="info-row"><span class="info-label">File Name:</span> <span id="export-filename">-</span></div>
+                <p class="hint">The file will be saved to your default downloads folder.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-modal-close="export-modal">Cancel</button>
+                <button type="button" id="btn-confirm-export" class="btn btn-primary">Download JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPORT MODAL -->
+    <div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden>
+        <div class="modal-backdrop" data-modal-close="import-modal"></div>
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-header">
+                <h2 id="import-title">Import Tasks</h2>
+                <button type="button" class="modal-close" aria-label="Close" data-modal-close="import-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select a previously-exported JSON file to import tasks.</p>
+                <div class="file-drop">
+                    <button type="button" id="btn-choose-file" class="btn btn-secondary">Choose File...</button>
+                    <span id="import-filename" class="file-name">No file selected</span>
+                </div>
+                <div id="import-preview" class="info-row" hidden>
+                    <span class="info-label">Valid Tasks Found:</span>
+                    <span id="import-count">0</span>
+                </div>
+                <p class="warn-text">Importing will replace all current tasks.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-modal-close="import-modal">Cancel</button>
+                <button type="button" id="btn-confirm-import" class="btn btn-primary" disabled>Import Tasks</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL -->
+    <div id="confirm-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+        <div class="modal-backdrop" data-modal-close="confirm-modal"></div>
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirm</h2>
+                <button type="button" class="modal-close" aria-label="Close" data-modal-close="confirm-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-confirm-cancel" class="btn btn-secondary" data-modal-close="confirm-modal">Cancel</button>
+                <button type="button" id="btn-confirm-ok" class="btn btn-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MESSAGE / NOTIFICATION POPUP MODAL -->
+    <div id="message-modal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="message-title" hidden>
+        <div class="modal-backdrop" data-modal-close="message-modal"></div>
+        <div class="modal-dialog modal-xs" role="document">
+            <div class="modal-header" id="message-header">
+                <h2 id="message-title">Message</h2>
+                <button type="button" class="modal-close" aria-label="Close" data-modal-close="message-modal">&times;</button>
+            </div>
+            <div class="modal-body message-body">
+                <div class="message-icon" id="message-icon" aria-hidden="true"></div>
+                <p id="message-text">&nbsp;</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-message-ok" class="btn btn-primary" data-modal-close="message-modal">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         INFO / ABOUT MODAL
+         ========================================== -->
+    <div id="info-modal" class="modal info-theme" role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
+        <div class="modal-backdrop" data-modal-close="info-modal"></div>
+        <div class="modal-dialog modal-info" role="document">
+            <div class="info-header">
+                <div class="info-brand">
+                    <div class="info-logo" aria-hidden="true">&#10004;</div>
+                    <div>
+                        <h2 id="info-title">Daily Work Follow-Up Tracker</h2>
+                        <p class="info-tagline">Enterprise-Level Task &amp; Productivity Manager</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close info-close" aria-label="Close" data-modal-close="info-modal">&times;</button>
+            </div>
+
+            <div class="modal-body info-body">
+
+                <!-- Metadata -->
+                <ul class="info-list">
+                    <li><span class="ico" aria-hidden="true">&#9873;</span><span class="lbl">Version</span><span class="val">5.1.0</span></li>
+                    <li><span class="ico" aria-hidden="true">&#128197;</span><span class="lbl">Released</span><span class="val" id="info-released">June 2026</span></li>
+                    <li><span class="ico" aria-hidden="true">&#128100;</span><span class="lbl">Author</span><span class="val">Boopathi Subramanian</span></li>
+                    <li><span class="ico" aria-hidden="true">&#9881;</span><span class="lbl">Built With</span><span class="val">HTML5 &middot; CSS3 &middot; Vanilla JS (ES6+)</span></li>
+                    <li><span class="ico" aria-hidden="true">&#127760;</span><span class="lbl">Mode</span><span class="val">Client-Side Only &middot; Works Offline After First Load</span></li>
+                    <li><span class="ico" aria-hidden="true">&#128230;</span><span class="lbl">Dependencies</span><span class="val">No Third-Party Libraries &middot; Vanilla JS Only</span></li>
+                    <li><span class="ico" aria-hidden="true">&#128190;</span><span class="lbl">Storage</span><span class="val">In-Memory Only &middot; No Cookies &middot; No localStorage &middot; No Server Sync</span></li>
+                    <li><span class="ico" aria-hidden="true">&#127760;</span><span class="lbl">Hosting</span><span class="val">Any Static Web Host (e.g. GitHub Pages, S3)</span></li>
+                    <li><span class="ico" aria-hidden="true">&#128274;</span><span class="lbl">Network</span><span class="val">Zero Outbound Requests &mdash; Data Never Leaves Your Browser</span></li>
+                </ul>
+
+                <!-- Important box -->
+                <div class="info-note">
+                    <h3>&#9888; Important &mdash; Read Before Use</h3>
+                    <ul>
+                        <li><strong>In-memory data only.</strong> Closing or refreshing the page will clear all tasks.</li>
+                        <li><strong>Export JSON</strong> to save your work, and <strong>Import JSON</strong> to reload it next time.</li>
+                        <li><strong>Task IDs are auto-generated</strong> from the Start Date in the format <code>YYYYMMDD##</code> (max 99 per date).</li>
+                        <li><strong>Overdue</strong> tasks are highlighted when Due Date is before today and Status is not Completed.</li>
+                        <li><strong>No tracking, no analytics, no telemetry.</strong> The app runs entirely on your device.</li>
+                        <li><strong>You are solely responsible for your data.</strong> Always back up your JSON exports.</li>
+                    </ul>
+                </div>
+
+                <!-- Security -->
+                <section class="info-section">
+                    <h3>&#128737; Security</h3>
+                    <ul class="info-feature-list">
+                        <li>Strict <strong>Content Security Policy (CSP)</strong> via meta tag</li>
+                        <li>No <code>eval()</code>, no <code>Function()</code>, no inline scripts</li>
+                        <li>All user input is <strong>sanitized</strong> and rendered via <code>textContent</code></li>
+                        <li>No <code>innerHTML</code> usage with user-supplied data</li>
+                        <li>X-Content-Type-Options, X-Frame-Options, Referrer-Policy headers</li>
+                        <li>Duplicate Task ID prevention &amp; safe JSON import via <code>try/catch</code></li>
+                        <li>Confirmation prompts for all destructive actions</li>
+                        <li>File-size limit (max 5MB) on JSON import</li>
+                    </ul>
+                </section>
+
+                <!-- Features -->
+                <section class="info-section">
+                    <h3>&#10024; Features</h3>
+                    <ul class="info-feature-list two-col">
+                        <li>Add, Edit, Delete tasks</li>
+                        <li>Auto-generated Task ID</li>
+                        <li>Search across tasks</li>
+                        <li>Filter by Priority, Category, Status</li>
+                        <li>Sort by ID, Due Date, Priority, Status</li>
+                        <li>Overdue detection &amp; highlight</li>
+                        <li>Summary dashboard cards</li>
+                        <li>Priority &amp; Status color badges</li>
+                        <li>Export tasks as JSON</li>
+                        <li>Import tasks from JSON</li>
+                        <li>Clear All with confirmation</li>
+                        <li>Popup notifications &amp; modals</li>
+                        <li>Responsive design (Desktop / Tablet / Mobile)</li>
+                        <li>Keyboard accessible (ESC to close)</li>
+                    </ul>
+                </section>
+
+                <!-- Browser Support -->
+                <section class="info-section">
+                    <h3>&#127760; Browser Support</h3>
+                    <p class="info-browsers">
+                        Chrome &middot; Edge &middot; Firefox &middot; Safari &middot; Opera &middot; Brave (latest)
+                    </p>
+                </section>
+
+                <!-- License -->
+                <section class="info-section">
+                    <h3>&#128221; License &amp; Disclaimer</h3>
+                    <p>
+                        Released under the <strong>MIT License</strong>. Software provided <strong>"AS-IS"</strong>, without warranty.
+                        The author assumes <strong>no liability</strong> for data loss, security breaches, or damages arising from use.
+                    </p>
+                </section>
+
+            </div>
+
+            <div class="modal-footer info-footer">
+                <div class="info-copyright">
+                    &copy; 2026 Daily Work Follow-Up Tracker. All rights reserved.<br>
+                    <span class="info-tiny">Your tasks. Your device. Your responsibility.</span>
+                </div>
+                <button type="button" class="btn btn-primary" data-modal-close="info-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
