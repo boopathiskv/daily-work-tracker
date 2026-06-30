@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="Referrer-Policy" content="no-referrer">
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
@@ -14,11 +13,15 @@
                    connect-src 'self';
                    object-src 'none';
                    base-uri 'self';
-                   form-action 'self';
-                   frame-ancestors 'none';">
+                   form-action 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Daily Work Follow-Up Tracker - manage your daily tasks, priorities, and status.">
     <title>Daily Work Follow-Up Tracker</title>
+
+    <!-- Inline SVG favicon (prevents 404 request) -->
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b5cab'/%3E%3Cpath d='M18 32l10 10 18-20' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+
     <link rel="stylesheet" href="Css.css">
 </head>
 <body>
@@ -264,7 +267,8 @@
     </div>
 
     <!-- EXPORT MODAL -->
-    <div id="export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title" hidden>
+    <!-- EXPORT MODAL -->
+<div id="export-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="export-title" hidden>
     <div class="modal-backdrop" data-modal-close="export-modal"></div>
     <div class="modal-dialog modal-sm" role="document">
         <div class="modal-header">
@@ -276,7 +280,8 @@
             <div class="info-row"><span class="info-label">Total Tasks:</span> <span id="export-count">0</span></div>
             <div class="info-row"><span class="info-label">File Name:</span> <span id="export-filename">-</span></div>
 
-            <div class="encrypt-section">
+            <!-- ⭐ FIX: Wrap password fields in a form -->
+            <form id="export-form" class="encrypt-section" autocomplete="off" onsubmit="return false;">
                 <label class="checkbox-row">
                     <input type="checkbox" id="export-encrypt-toggle">
                     <span>🔐 Encrypt with password (AES-256-GCM)</span>
@@ -285,11 +290,11 @@
                 <div id="export-password-wrap" class="password-wrap" hidden>
                     <label for="export-password" class="sr-only">Encryption password</label>
                     <div class="password-input-row">
-                        <input type="password" id="export-password" placeholder="Enter encryption password" maxlength="200" autocomplete="new-password">
+                        <input type="password" id="export-password" name="export-password" placeholder="Enter encryption password" maxlength="200" autocomplete="new-password">
                         <button type="button" id="export-toggle-visibility" class="btn-icon" aria-label="Show password">👁</button>
                     </div>
                     <div class="password-input-row">
-                        <input type="password" id="export-password-confirm" placeholder="Confirm password" maxlength="200" autocomplete="new-password">
+                        <input type="password" id="export-password-confirm" name="export-password-confirm" placeholder="Confirm password" maxlength="200" autocomplete="new-password">
                     </div>
                     <div class="pwd-strength">
                         <div class="pwd-strength-bar"><span id="export-pwd-bar"></span></div>
@@ -297,7 +302,7 @@
                     </div>
                     <p class="hint">⚠️ Remember this password — there is <strong>no recovery</strong> if you forget it.</p>
                 </div>
-            </div>
+            </form>
 
             <p class="hint">The file will be saved to your default downloads folder.</p>
         </div>
@@ -308,8 +313,8 @@
     </div>
 </div>
 
-    <!-- IMPORT MODAL -->
-    <div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden>
+<!-- IMPORT MODAL -->
+<div id="import-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden>
     <div class="modal-backdrop" data-modal-close="import-modal"></div>
     <div class="modal-dialog modal-sm" role="document">
         <div class="modal-header">
@@ -327,14 +332,17 @@
                 🔐 This file is <strong>encrypted</strong>. Enter the password to decrypt.
             </div>
 
-            <div id="import-password-wrap" class="password-wrap" hidden>
-                <label for="import-password" class="sr-only">Decryption password</label>
-                <div class="password-input-row">
-                    <input type="password" id="import-password" placeholder="Enter decryption password" maxlength="200" autocomplete="off">
-                    <button type="button" id="import-toggle-visibility" class="btn-icon" aria-label="Show password">👁</button>
+            <!-- ⭐ FIX: Wrap password field in a form -->
+            <form id="import-form" autocomplete="off" onsubmit="return false;">
+                <div id="import-password-wrap" class="password-wrap" hidden>
+                    <label for="import-password" class="sr-only">Decryption password</label>
+                    <div class="password-input-row">
+                        <input type="password" id="import-password" name="import-password" placeholder="Enter decryption password" maxlength="200" autocomplete="current-password">
+                        <button type="button" id="import-toggle-visibility" class="btn-icon" aria-label="Show password">👁</button>
+                    </div>
+                    <button type="button" id="btn-decrypt" class="btn btn-secondary btn-small">🔓 Decrypt</button>
                 </div>
-                <button type="button" id="btn-decrypt" class="btn btn-secondary btn-small">🔓 Decrypt</button>
-            </div>
+            </form>
 
             <div id="import-preview" class="info-row" hidden>
                 <span class="info-label">Valid Tasks Found:</span>
